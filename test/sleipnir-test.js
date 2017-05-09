@@ -8,7 +8,7 @@ const mockStore = configureMockStore([middleware])
 
 const same = (o1, o2) => JSON.stringify(o1) === JSON.stringify(o2)
 
-describe('Redunk', () => {
+describe('Sleipnir', () => {
   describe('createAction', () => {
     it('sets constants for external reference', () => {
       createAction('CONSTANT_TEST')
