@@ -1,6 +1,6 @@
 {
   "name": "sleipnir",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Build powerful redux stores, fast.",
   "repository": "https://github.com/benoneal/sleipnir",
   "main": "dist/index.js",
@@ -11,9 +11,10 @@
     "test": "standard && mocha"
   },
   "keywords": [
-    "i18n",
-    "react",
-    "translation"
+    "redux",
+    "thunk",
+    "action",
+    "store"
   ],
   "author": "Ben O'Neal",
   "license": "MIT",

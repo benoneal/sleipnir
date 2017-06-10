@@ -37,6 +37,9 @@ const extendInitialState = (state) => {
   })
 }
 
+export const getInitialState = (additionalState = {}) => 
+  ({...storeInitialState, ...additionalState})
+
 const setHelper = (set) => (value) => (type) => (state) => ({
   ...state,
   [set]: {
