@@ -1,7 +1,7 @@
 import merge from 'deepmerge'
 export {default as middleware} from 'redux-thunk'
 
-const {keys} = Object
+const {values, keys} = Object
 const {isArray} = Array
 const isObject = (obj) => obj === Object(obj) && !isArray(obj)
 
@@ -16,6 +16,7 @@ const storeInitialState = {
   succeeded: {},
   failed: {}
 }
+const initialStateBuffer = {}
 
 const addConstant = (actionType) => {
   constants[actionType] = actionType
@@ -31,14 +32,19 @@ const mergeInitialState = (a, b) => {
   return b
 }
 
-const extendInitialState = (state) => {
-  keys(state).forEach((key) => {
-    storeInitialState[key] = mergeInitialState(storeInitialState[key], state[key])
-  })
-}
+const extendInitialState = (key, state) => 
+  initialStateBuffer[key] = state
+
+const buildStateFromBuffer = () => 
+  values(initialStateBuffer).reduce((state, newState) => {
+    keys(newState).forEach((key) => {
+      state[key] = mergeInitialState(state[key], newState[key])
+    })
+    return state
+  }, {...storeInitialState})
 
 export const getInitialState = (additionalState = {}) => 
-  ({...storeInitialState, ...additionalState})
+  ({...buildStateFromBuffer(), ...additionalState})
 
 const setHelper = (set) => (value) => (type) => (state) => ({
   ...state,
@@ -106,7 +112,7 @@ export const createAction = (
   } = {}
 ) => {
   addConstant(type)
-  extendInitialState(initialState)
+  extendInitialState(type, initialState)
 
   if (async) return createAsyncAction(type, {condition, async, sideEffect, paired, handler, errorHandler, initialState})
 
@@ -129,7 +135,7 @@ export const createAction = (
   }
 }
 
-const reducer = (state = storeInitialState, {type, ...action} = {}) => (
+const reducer = (state = getInitialState(), {type, ...action} = {}) => (
   handlers.hasOwnProperty(type) ? handlers[type](state, action) : state
 )
 
