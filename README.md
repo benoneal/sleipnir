@@ -1,63 +1,64 @@
 
 # Sleipnir
 
-A convenience interface for Redux, to remove boilerplate and provide sensible asynchronous action handling. 
+A tiny, zero-dependency convenience interface for Redux, to remove boilerplate and provide sensible asynchronous action handling.
+
+Requires `redux-thunk` middleware.
 
 ## How to use
 
-
 Install via `npm i -S sleipnir` or `yarn add sleipnir`.
 
-Create your actions. Example: 
+Create your actions. Example:
 
 ```js
 // actions.js
-import {createAction} from 'sleipnir'
+import {createAction, setState} from 'sleipnir'
 
+const normalizeUsers = users => users.map(({id, name}) => ({id, name}))
+// The full createAction API in use
+// Args of setState are state, followed by keys/indices/functions to set state
 export const getUsers = createAction('GET_USERS', {
   initialState: {users: []},
-  async: () => fetchUsers(),
-  handler: (state, {payload: users}) => ({
-    ...state, 
-    users: users.map(({id, name}) => ({id, name}))
-  })
+  async: _ => fetchUsers(),
+  handler: (state, users) =>
+    setState(state, 'users', normalizeUsers),
+  errorHandler: (state, _, error) =>
+    setState(state, 'errors', 'users', error),
 })
 
 export const getUser = createAction('GET_USER', {
-  async: ({id}) => fetchUser(id), 
-  handler: (state, {payload: user}) => ({
-    ...state, 
-    user
-  })
+  async: ({id}) => fetchUser(id),
+  handler: (state, user) =>
+    setState(state, 'user', user)
 })
 
 export const setFormValue = createAction('SET_FORM_VALUE', {
-  handler: (state, {payload: [field, value]}) => ({
-    ...state,
-    form: {
-      ...state.form,
-      [field]: value
-    }
-  })
+  handler: (state, [field, value]) =>
+    setState(state, 'form', field, value)
 })
 ```
 
-Pass the reducer to redux: 
+Pass the reducer to redux (make sure you use the `redux-thunk` middleware):
 
 ```js
-import { createStore, applyMiddleware } from 'redux'
-import reducer, {middleware} from './store'
+import {createStore, applyMiddleware} from 'redux'
+import thunk from 'redux-thunk'
+import reducer from 'sleipnir'
 
-const createStoreWithMiddleware = applyMiddleware(middleware)(createStore)
+const configureStore = initialState =>
+  createStore(reducer, initialState, applyMiddleware(thunk))
 
-const store = createStoreWithMiddleware(reducer)
+const store = configureStore({})
 ```
 
-That's all you need.
+And away you go!
 
 ### Useful stuff
 
-Initial state is seeded with three root keys: `pending`, `succeeded`, and `failed`. Async actions will set their state in these, keyed by their constant, like so: 
+Since `createAction` creates its own reducer handler, you can create actions and reducers dynamically/conditionally during runtime, without affecting the redux store operation in any way. So you can easily colocate your action/reducers with your views/logic, and extend your app without touching the central redux store.
+
+Initial state is seeded with three root keys: `pending`, `succeeded`, and `failed`. Async actions will set their state in these, keyed by their constant, like so:
 
 ```js
 {
@@ -66,18 +67,24 @@ Initial state is seeded with three root keys: `pending`, `succeeded`, and `faile
   }
 }
 ```
-You can display loading status in your app from this state, like so: 
+You can display loading status in your app from this state, like so:
 
 ```js
-import {connect} from 'react-redux'
-import Loading from '../Loading'
+import {useSelector} from 'react-redux'
+import {createSelector} from 'sleipnir'
 
-const mapStateToProps = ({pending}) => ({
-  globalLoading: Object.values(pending).filter(x => x).length > 0,
-  loadingUser: pending.GET_USER
-})
+ // Args of createSelector are keys/indices/functions to traverse state to the desired value
+const getPending = createSelector('pending', p => Object.values(p).some(Boolean))
+const getPendingUser = createSelector('pending', 'GET_USER')
 
-export default connect(mapStateToProps)(Loading)
+const Loading = props => {
+  const globalLoading = useSelector(getPending)
+  const loadingUser = useSelector(getPendingUser)
+  const message = globalLoading ? 'Loading...' : loadingUser ? 'Loading user...' : 'Done'
+  return (
+    <div>{message}</div>
+  )
+}
 ```
 
-Similarly, `succeeded` and `failed` can be useful for displaying error or success messages, or whatever your application requires. 
+Similarly, `succeeded` and `failed` can be useful for displaying error or success messages, or whatever your application requires.

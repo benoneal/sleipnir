@@ -1,65 +1,47 @@
-import merge from 'deepmerge'
-export {default as middleware} from 'redux-thunk'
+export const setState = (state = {}, ...set) => {
+  if (set.length === 0) return state
+  const key = set.shift()
+  if (typeof key === 'function') return setState(key(state), ...set)
+  if (set.length === 0) return key
+  if (typeof key === 'number' && Array.isArray(state)) {
+    state = [...state]
+    state[key] = setState(state[key], ...set)
+    return state
+  }
+  return {...state, [key]: setState(state[key], ...set)}
+}
 
-const {values, keys} = Object
-const {isArray} = Array
-const isObject = (obj) => obj === Object(obj) && !isArray(obj)
+const getState = (state, ...path) => {
+  if (path.length === 0) return state
+  const key = path.shift()
+  if (typeof key === 'function') return getState(key(state), ...path)
+  if (path.length === 0) return state[key]
+  return getState(state[key], ...path)
+}
 
-const chain = (...reducers) => (state, action) => (
+export const createSelector = (...path) => state => getState(state, ...path)
+
+const chain = (...reducers) => (state, action) =>
   reducers.reduce((acc, reducer) => reducer(acc, action), state)
-)
 
 export const constants = {}
 const handlers = {}
-const storeInitialState = {
+const initialStateBuffer = [{
   pending: {},
   succeeded: {},
   failed: {}
-}
-const initialStateBuffer = {}
+}]
 
-const addConstant = (actionType) => {
-  constants[actionType] = actionType
-}
+const addConstant = type => constants[type] = type
+const addInitialState = state => initialStateBuffer.push(state)
+const addHandler = (type, handler) => handlers[type] = handler
 
-const addHandler = (actionType, handler) => {
-  handlers[actionType] = handler
-}
+const setSucceeded = type => state => setState(state, 'succeeded', type, true)
+const setFailed = type => state => setState(state, 'failed', type, true)
+const setIsPending = type => state => setState(state, 'pending', type, true)
+const setNotPending = type => state => setState(state, 'pending', type, false)
 
-const mergeInitialState = (a, b) => {
-  if (isObject(b) && isObject(a)) return merge(a, b)
-  if (isArray(b) && isArray(a)) return [...a, ...b]
-  return b
-}
-
-const extendInitialState = (key, state) => 
-  initialStateBuffer[key] = state
-
-const buildStateFromBuffer = () => 
-  values(initialStateBuffer).reduce((state, newState) => {
-    keys(newState).forEach((key) => {
-      state[key] = mergeInitialState(state[key], newState[key])
-    })
-    return state
-  }, {...storeInitialState})
-
-export const getInitialState = (additionalState = {}) => 
-  ({...buildStateFromBuffer(), ...additionalState})
-
-const setHelper = (set) => (value) => (type) => (state) => ({
-  ...state,
-  [set]: {
-    ...state[set],
-    [type]: value
-  }
-})
-
-const setSucceeded = setHelper('succeeded')(true)
-const setFailed = setHelper('failed')(true)
-const setIsPending = setHelper('pending')(true)
-const setNotPending = setHelper('pending')(false)
-
-const trimPayload = (payload) => payload.length === 1 ? payload[0] : payload
+const trimPayload = payload => payload.length === 1 ? payload[0] : payload
 
 const SUCCESS = '_SUCCESS'
 const FAILURE = '_FAILURE'
@@ -67,13 +49,9 @@ const FAILURE = '_FAILURE'
 const createAsyncAction = (
   type,
   {
-    condition,
     async,
-    sideEffect,
-    paired,
     handler,
-    errorHandler,
-    initialState
+    errorHandler
   }
 ) => {
   addHandler(type, setIsPending(type))
@@ -82,61 +60,44 @@ const createAsyncAction = (
 
   return (...payload) => (dispatch, getState) => {
     const state = getState()
-    if (state.pending[type] || !condition(...payload, state, dispatch)) return
+    if (state.pending[type]) return
 
     dispatch({type})
 
-    return async(...payload, state, dispatch).then(
-      (...payload) => dispatch({type: type + SUCCESS, payload: trimPayload(payload)}),
-      (error) => dispatch({type: type + FAILURE, error})
-    ).then(() => {
-      sideEffect(...payload, state)
-      paired && dispatch(paired(...payload))
-    })
+    return async(trimPayload(payload), state, dispatch).then(
+      payload => dispatch({type: type + SUCCESS, payload}),
+      error => dispatch({type: type + FAILURE, error})
+    )
   }
 }
 
-const noop = () => {}
 const defaultHandler = state => state
 
 export const createAction = (
   type,
   {
-    condition = () => true,
     async,
-    sideEffect = noop,
-    paired,
     handler = defaultHandler,
     errorHandler = defaultHandler,
     initialState = {}
   } = {}
 ) => {
   addConstant(type)
-  extendInitialState(type, initialState)
-
-  if (async) return createAsyncAction(type, {condition, async, sideEffect, paired, handler, errorHandler, initialState})
-
+  addInitialState(initialState)
+  if (async) return createAsyncAction(type, {async, handler, errorHandler})
   addHandler(type, handler)
 
-  return (e, ...args) => (dispatch, getState) => {
-    const state = getState()
-    let payload
-
-    if (e && e.hasOwnProperty('nativeEvent')) {
-      payload = args
-    } else {
-      payload = [e, ...args]
-    }
-
-    if (!condition(...payload, state, dispatch)) return
-    sideEffect(...payload, state)
-    paired && dispatch(paired(...payload))
-    return dispatch({type, payload: trimPayload(payload)})
+  return (e, ...args) => {
+    const payload = trimPayload((e && e.hasOwnProperty('nativeEvent')) ? args : [e, ...args])
+    return {type, payload}
   }
 }
 
-const reducer = (state = getInitialState(), {type, ...action} = {}) => (
-  handlers.hasOwnProperty(type) ? handlers[type](state, action) : state
-)
+const initialState = _ => initialStateBuffer.reduce((acc, state) => ({...acc, ...state}), {})
+
+const reducer = (state = initialState(), {type, payload, error} = {}) => {
+  if (!state.pending || !state.succeeded || !state.failed) state = {...state, ...initialState()}
+  return handlers.hasOwnProperty(type) ? handlers[type](state, payload, error) : state
+}
 
 export default reducer
