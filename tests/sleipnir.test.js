@@ -2,7 +2,7 @@ import configureMockStore from 'redux-mock-store'
 import {createStore, applyMiddleware} from 'redux'
 import thunk from 'redux-thunk'
 
-import reducer, {createAction, createSelector, setState, constants} from '../'
+import reducer, {createAction, createSelector, setState, setNamedAsync, constants} from '../src'
 
 const mockStore = configureMockStore([thunk])
 
@@ -48,9 +48,38 @@ describe('Sleipnir', () => {
       await store.dispatch(action(123))
       const expectedState = {
         failed: {},
+        ssr_cached: {TEST_ASYNC_ACTION: true},
         pending: {TEST_ASYNC_ACTION: false},
         succeeded: {TEST_ASYNC_ACTION: true},
         number: 246,
+      }
+      expect(store.getState()).toEqual(expectedState)
+    })
+
+    it('throws when naming an un-set asynchronous method', () => {
+      expect(() => createAction('TEST_UNSET_NAMED_ASYNC_ACTION', {
+        async: 'test',
+        handler: state => setState(state)
+      })).toThrow()
+    })
+
+    it('invokes named async methods', async () => {
+      setNamedAsync({
+        test: n => Promise.resolve(n * 3)
+      })
+      const action = createAction('TEST_NAMED_ASYNC_ACTION', {
+        initialState: {number: 0},
+        async: 'test',
+        handler: (state, n) => setState(state, 'number', n)
+      })
+      const store = createStore(reducer, {}, applyMiddleware(thunk))
+      await store.dispatch(action(123))
+      const expectedState = {
+        failed: {},
+        ssr_cached: {TEST_NAMED_ASYNC_ACTION: true},
+        pending: {TEST_NAMED_ASYNC_ACTION: false},
+        succeeded: {TEST_NAMED_ASYNC_ACTION: true},
+        number: 369,
       }
       expect(store.getState()).toEqual(expectedState)
     })
@@ -62,6 +91,7 @@ describe('Sleipnir', () => {
         pending: {},
         succeeded: {},
         failed: {},
+        ssr_cached: {},
         number:0,
       })
       const action = createAction('TEST_ACTION', {initialState: {tests: []}})
@@ -69,6 +99,7 @@ describe('Sleipnir', () => {
         pending: {},
         succeeded: {},
         failed: {},
+        ssr_cached: {},
         number:0,
         tests: []
       })

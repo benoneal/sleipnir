@@ -1,3 +1,11 @@
+const isBrowser = (
+  typeof module === 'undefined' &&
+  self && !self.module &&
+  typeof window !== 'undefined'
+  && typeof document !== 'undefined'
+  && document.nodeType === 9
+)
+
 export const setState = (state = {}, ...set) => {
   if (set.length === 0) return state
   const key = set.shift()
@@ -26,25 +34,31 @@ const chain = (...reducers) => (state, action) =>
 
 export const constants = {}
 const handlers = {}
+const namedAsync = {}
 const initialStateBuffer = [{
   pending: {},
   succeeded: {},
-  failed: {}
+  failed: {},
+  ssr_cached: {}
 }]
 
 const addConstant = type => constants[type] = type
 const addInitialState = state => initialStateBuffer.push(state)
 const addHandler = (type, handler) => handlers[type] = handler
+export const setNamedAsync = namedMethods =>
+  Object.entries(namedMethods).forEach(([name, method]) => namedAsync[name] = method)
 
 const setSucceeded = type => state => setState(state, 'succeeded', type, true)
 const setFailed = type => state => setState(state, 'failed', type, true)
 const setIsPending = type => state => setState(state, 'pending', type, true)
 const setNotPending = type => state => setState(state, 'pending', type, false)
+const setSSRCached = type => state => setState(state, 'ssr_cached', type, !isBrowser)
 
 const trimPayload = payload => payload.length === 1 ? payload[0] : payload
 
 const SUCCESS = '_SUCCESS'
 const FAILURE = '_FAILURE'
+const SSR_CACHE = '_SSR_CACHE'
 
 const createAsyncAction = (
   type,
@@ -57,9 +71,18 @@ const createAsyncAction = (
   addHandler(type, setIsPending(type))
   addHandler(type + SUCCESS, chain(setNotPending(type), setSucceeded(type), handler))
   addHandler(type + FAILURE, chain(setNotPending(type), setFailed(type), errorHandler || handler))
+  addHandler(type + SSR_CACHE, setSSRCached(type))
+
+  if (typeof async === 'string') {
+    const name = async
+    if (!namedAsync[name]) throw new Error(`Named async method [${name}] has not been set by setNamedAsync`)
+    async = namedAsync[name]
+  }
 
   return (...payload) => (dispatch, getState) => {
     const state = getState()
+    if (!isBrowser) dispatch({type: type + SSR_CACHE})
+    if (state.ssr_cached[type] && isBrowser) return dispatch({type: type + SSR_CACHE})
     if (state.pending[type]) return
 
     dispatch({type})

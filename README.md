@@ -1,9 +1,19 @@
-
 # Sleipnir
 
-A tiny, zero-dependency convenience interface for Redux, to remove boilerplate and provide sensible asynchronous action handling.
+A tiny, zero-dependency convenience interface for Redux, to remove boilerplate and provide sensible asynchronous action handling on for universal (aka isomorphic) apps.
 
-Requires `redux-thunk` middleware.
+_Requires `redux-thunk` middleware._
+
+Features:
+
+- Super-simple API
+- Define chunks of state and logic in one place
+- Async actions have baked-in pending/failed/succeeded state updates
+- Dynamic action/reducer creation at runtime
+- *Solves the biggest Server-Side-Redux issues*:
+-- Caches actions when invoked on the server, to skip the first bootstrap call in the client
+-- Simple API to declare separate data-fetching logic for server-and-client (so you aren't making HTTP requests from your server)
+- Helpers for terse declarative state change and selection
 
 ## How to use
 
@@ -12,6 +22,19 @@ Install via `npm i -S sleipnir` or `yarn add sleipnir`.
 Create your actions. Example:
 
 ```js
+// some_client_code_path.js
+import {setNamedAsync} from 'sleipnir'
+
+setNamedAsync({
+  users: _ => xhr.get('/users')
+})
+
+// some_server_code_path.js
+import {setNamedAsync} from 'sleipnir'
+setNamedAsync({
+  users: _ => db.query('select * from users')
+})
+
 // actions.js
 import {createAction, setState} from 'sleipnir'
 
@@ -20,7 +43,7 @@ const normalizeUsers = users => users.map(({id, name}) => ({id, name}))
 // Args of setState are state, followed by keys/indices/functions to set state
 export const getUsers = createAction('GET_USERS', {
   initialState: {users: []},
-  async: _ => fetchUsers(),
+  async: 'users',
   handler: (state, users) =>
     setState(state, 'users', normalizeUsers),
   errorHandler: (state, _, error) =>
@@ -38,6 +61,8 @@ export const setFormValue = createAction('SET_FORM_VALUE', {
     setState(state, 'form', field, value)
 })
 ```
+
+_*NB*: Async actionCreators (those with an `async` property) have baked-in Server-Side-Redux caching. If they are called on the server, they will skip the first call on the client (invoked on initial render)._
 
 Pass the reducer to redux (make sure you use the `redux-thunk` middleware):
 
