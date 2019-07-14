@@ -1,6 +1,6 @@
 # Sleipnir
 
-A tiny, zero-dependency convenience interface for Redux, to remove boilerplate and provide sensible asynchronous action handling on for universal (aka isomorphic) apps.
+A tiny, zero-dependency convenience interface for Redux, to remove boilerplate and provide sensible asynchronous action handling for universal (aka isomorphic) apps.
 
 _Requires `redux-thunk` middleware._
 
@@ -17,7 +17,7 @@ Features:
 
 ## How to use
 
-Install via `npm i -S sleipnir` or `yarn add sleipnir`.
+Install via `npm i -S sleipnir`
 
 Create your actions. Example:
 
@@ -36,7 +36,7 @@ setNamedAsync({
 })
 
 // actions.js
-import {createAction, setState} from 'sleipnir'
+import {createAction, setState, simpleHandler} from 'sleipnir'
 
 const normalizeUsers = users => users.map(({id, name}) => ({id, name}))
 // The full createAction API in use
@@ -50,10 +50,11 @@ export const getUsers = createAction('GET_USERS', {
     setState(state, 'errors', 'users', error),
 })
 
+// simpleHandler returns new state with the action payload value set to this path
+// the below is identical to (state, user) => ({...state, user}) but allows deep nesting
 export const getUser = createAction('GET_USER', {
   async: ({id}) => fetchUser(id),
-  handler: (state, user) =>
-    setState(state, 'user', user)
+  handler: simpleHandler('user')
 })
 
 export const setFormValue = createAction('SET_FORM_VALUE', {
@@ -98,7 +99,8 @@ You can display loading status in your app from this state, like so:
 import {useSelector} from 'react-redux'
 import {createSelector} from 'sleipnir'
 
- // Args of createSelector are keys/indices/functions to traverse state to the desired value
+// Args of createSelector are keys/indices/functions to traverse state to the desired value
+// function signature is (currentPathValue, globalState) => nextPathValue
 const getPending = createSelector('pending', p => Object.values(p).some(Boolean))
 const getPendingUser = createSelector('pending', 'GET_USER')
 

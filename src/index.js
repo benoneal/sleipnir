@@ -6,28 +6,34 @@ const isBrowser = (
   && document.nodeType === 9
 )
 
+const isNumber = n => typeof n === 'number' || (!isNaN(Number(n)) && !isNaN(parseInt(n)))
+
 export const setState = (state = {}, ...set) => {
   if (set.length === 0) return state
   const key = set.shift()
   if (typeof key === 'function') return setState(key(state), ...set)
   if (set.length === 0) return key
-  if (typeof key === 'number' && Array.isArray(state)) {
-    state = [...state]
-    state[key] = setState(state[key], ...set)
-    return state
-  }
-  return {...state, [key]: setState(state[key], ...set)}
+  state = isNumber(key) ? Array.from(state || []) : {...(state || {})}
+  state[key] = setState(state[key], ...set)
+  return state
 }
 
-const getState = (state, ...path) => {
-  if (path.length === 0) return state
+export const simpleHandler = (...path) => (state, value) => setState(state, ...path, value)
+
+const getState = (state, current, ...path) => {
+  if (path.length === 0) return current
   const key = path.shift()
-  if (typeof key === 'function') return getState(key(state), ...path)
-  if (path.length === 0) return state[key]
-  return getState(state[key], ...path)
+  if (typeof key === 'function') return getState(state, key(current, state), ...path)
+  if (path.length === 0) return current[key]
+  return getState(state, current[key], ...path)
 }
 
-export const createSelector = (...path) => state => getState(state, ...path)
+export const createSelector = (key, ...path) => state =>
+  getState(
+    state,
+    typeof key === 'function' ? key(state, state) : state[key],
+    ...path
+  )
 
 const chain = (...reducers) => (state, action) =>
   reducers.reduce((acc, reducer) => reducer(acc, action), state)

@@ -11,17 +11,17 @@ describe('Sleipnir', () => {
     it('sets state immutably', () => {
       const state = {test: {testing: [{another: 456}, {thing: 123}]}}
       const newState = setState(state, 'test', 'testing', 1, 'thing', x => x * 2)
-      const moreState = setState(newState, 'what', 'about', 'over', 'here', 987)
+      const moreState = setState(newState, 'what', 'about', 0, 'ver', 'her', 3, 987)
       expect(state).not.toBe(newState)
       expect(newState).not.toBe(moreState)
       expect(newState.test.testing[1].thing).toBe(246)
       expect(moreState.test.testing[1].thing).toBe(246)
-      expect(moreState.what.about.over.here).toBe(987)
+      expect(moreState.what.about[0].ver.her[3]).toBe(987)
     })
 
     it('creates lenses into state', () => {
-      const state = {test: {testing: [{another: 456}, {thing: 123}]}}
-      const getThing = createSelector('test', 'testing', 1, 'thing')
+      const state = {value: 'thing', test: {testing: [{another: 456}, {thing: 123}]}}
+      const getThing = createSelector('test', 'testing', 1, (c, s) => c[s.value])
       expect(getThing(state)).toBe(123)
     })
   })
