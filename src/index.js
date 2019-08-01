@@ -125,7 +125,7 @@ export const createAction = (
 const initialState = _ => initialStateBuffer.reduce((acc, state) => ({...acc, ...state}), {})
 
 const reducer = (state = initialState(), {type, payload, error} = {}) => {
-  if (!state.pending || !state.succeeded || !state.failed) state = {...state, ...initialState()}
+  if (!state.pending || !state.succeeded || !state.failed) state = {...initialState(), ...state}
   return handlers.hasOwnProperty(type) ? handlers[type](state, payload, error) : state
 }
 
