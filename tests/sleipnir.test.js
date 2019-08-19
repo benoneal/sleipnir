@@ -22,7 +22,10 @@ describe('Sleipnir', () => {
     it('creates lenses into state', () => {
       const state = {value: 'thing', test: {testing: [{another: 456}, {thing: 123}]}}
       const getThing = createSelector('test', 'testing', 1, (c, s) => c[s.value])
+      const getNothing = createSelector('test', 'does_not_exist', 1, (c, s) => c ? c[s.value] : 'no_result')
       expect(getThing(state)).toBe(123)
+      expect(_ => getNothing(state)).not.toThrow()
+      expect(getNothing(state)).toBe('no_result')
     })
   })
   describe('createAction', () => {

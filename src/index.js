@@ -24,6 +24,7 @@ const getState = (state, current, ...path) => {
   if (path.length === 0) return current
   const key = path.shift()
   if (typeof key === 'function') return getState(state, key(current, state), ...path)
+  if (current === undefined) return getState(state, current, ...path)
   if (path.length === 0) return current[key]
   return getState(state, current[key], ...path)
 }
