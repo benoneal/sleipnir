@@ -80,13 +80,12 @@ const createAsyncAction = (
   addHandler(type + FAILURE, chain(setNotPending(type), setFailed(type), errorHandler || handler))
   addHandler(type + SSR_CACHE, setSSRCached(type))
 
-  if (typeof async === 'string') {
-    const name = async
-    if (!namedAsync[name]) throw new Error(`Named async method [${name}] has not been set by setNamedAsync`)
-    async = namedAsync[name]
-  }
-
   return (...payload) => (dispatch, getState) => {
+    if (typeof async === 'string') {
+      if (!namedAsync[async]) throw new Error(`Named async method [${async}] has not been set by setNamedAsync`)
+      async = namedAsync[async]
+    }
+
     const state = getState()
     if (!isBrowser) dispatch({type: type + SSR_CACHE})
     if (state.ssr_cached[type] && isBrowser) return dispatch({type: type + SSR_CACHE})

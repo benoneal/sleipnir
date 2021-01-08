@@ -59,14 +59,16 @@ describe('Sleipnir', () => {
       expect(store.getState()).toEqual(expectedState)
     })
 
-    it('throws when naming an un-set asynchronous method', () => {
-      expect(() => createAction('TEST_UNSET_NAMED_ASYNC_ACTION', {
+    it('throws when dispatching an un-set named async method', () => {
+      const action = createAction('TEST_UNSET_NAMED_ASYNC_ACTION', {
         async: 'test',
-        handler: state => setState(state)
-      })).toThrow()
+        handler: setState
+      })
+      const store = createStore(reducer, {}, applyMiddleware(thunk))
+      expect(() => store.dispatch(action(123))).toThrow()
     })
 
-    it('invokes named async methods', async () => {
+    it('invokes set named async methods', async () => {
       setNamedAsync({
         test: n => Promise.resolve(n * 3)
       })
@@ -97,7 +99,7 @@ describe('Sleipnir', () => {
         ssr_cached: {},
         number:0,
       })
-      const action = createAction('TEST_ACTION', {initialState: {tests: []}})
+      createAction('TEST_ACTION', {initialState: {tests: []}})
       expect(reducer()).toEqual({
         pending: {},
         succeeded: {},
